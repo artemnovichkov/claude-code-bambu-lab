@@ -2,6 +2,25 @@
 
 Each version's section becomes its GitHub release's notes when its `v<version>` tag is pushed.
 
+## 0.4.0 - 2026-10-22
+
+The pane is laid out like Bambu Handy.
+
+### Added
+
+- The print's settings under its name, such as "0.2mm layer, 2 walls, 15% infill", from the slicer's files Bambu keeps with the cloud task.
+- Skip objects: pick objects on a drawing of the bed (a list in the terminal), then confirm. Objects already skipped are greyed out.
+- The printer's notices, such as a calibration it asks for, in a green banner. HMS wording now comes from Bambu's table for the printer's model, which knows newer printers' codes.
+- AMS humidity.
+
+### Changed
+
+- The print sits in a card with the thumbnail on a plate, a large percentage, a thick progress bar and its Skip, Pause and Stop buttons.
+- Temperatures are chips, with icons in the desktop app.
+- The AMS is a card: spools in their filament's colour in the desktop app, with what's left on each and the one in use feeding below it; a row of slots in the terminal.
+- Hotkey badges are left to the terminal; the desktop app's buttons carry icons instead.
+- The README shows a real print instead of the time-lapse, and new screenshots.
+
 ## 0.3.1 - 2026-10-22
 
 ### Fixed
