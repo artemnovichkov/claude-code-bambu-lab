@@ -1,6 +1,16 @@
+<div align="center">
+
 <img src="assets/icon.svg" width="96" alt="">
 
 # Bambu Lab printer pane for Claude Code
+
+[![Version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fartemnovichkov%2Fclaude-code-bambu-lab%2Fmain%2F.claude-plugin%2Fplugin.json&query=%24.version&label=version)](.claude-plugin/plugin.json)
+[![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-orange)](#install)
+[![macOS](https://img.shields.io/badge/platform-macOS-lightgrey)](#requirements)
+[![Python 3, standard library only](https://img.shields.io/badge/python-3_%C2%B7_stdlib_only-blue)](bridge/bridge.py)
+[![License: MIT](https://img.shields.io/github/license/artemnovichkov/claude-code-bambu-lab)](LICENSE)
+
+</div>
 
 A [Claude Code](https://claude.com/claude-code) plugin that keeps your Bambu Lab printer in a pane beside the chat, in the desktop app and in the terminal: what it's printing, the stage, progress and layer, time left and when it'll be done, nozzle, bed and chamber temperatures, the AMS filaments with their colours, HMS errors, and the plate thumbnail. When the printer is idle, it shows the last print and how it ended.
 
@@ -79,6 +89,11 @@ claude plugin validate .
 ```
 BAMBU_FIXTURE=$PWD/fixtures/printing.jsonl claude --plugin-dir .
 ```
+
+## More from me
+
+- [3d-prints](https://github.com/artemnovichkov/3d-prints): models I design and print, with OpenSCAD and Fusion sources and ready-to-print 3MFs.
+- [MakerWorld](https://makerworld.com/en/@artemnovichkov): the same models, published.
 
 ## Disclaimer
 
