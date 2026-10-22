@@ -43,7 +43,7 @@ ROOT = os.path.join(os.path.expanduser("~"), "Library", "Application Support", "
 COMMANDS = os.path.join(ROOT, "commands")
 COVERS = os.path.join(ROOT, "covers")
 STATE_FILE = os.path.join(ROOT, "state.json")
-HMS_FILE = os.path.join(ROOT, "hms.json")
+HMS_FILE = os.path.join(ROOT, "hms-tables.json")
 LOG_FILE = os.path.join(ROOT, "bridge.log")
 KEYCHAIN = "claude-bambu"
 
@@ -568,7 +568,8 @@ class Printer:
         """Plays BAMBU_FIXTURE: each line a message, or {"msg": message}; ends connected.
 
         {"device": name} names the printer; {"tasks": [...]} stands in for its cloud tasks, each
-        {"id", "title", "status", "ago": seconds since it ended, "cover": a PNG beside the fixture}."""
+        {"id", "title", "status", "ago": seconds since it ended, "cover": a PNG beside the fixture,
+        and what fetch_details() would find: "settings", "bed", "objects"}."""
         with self.lock:
             self.connected = True
         here = os.path.dirname(os.path.abspath(FIXTURE))
@@ -589,6 +590,7 @@ class Printer:
                                 task["end"] = time.time() - t["ago"] if isinstance(t.get("ago"), (int, float)) else None
                                 task["cover"] = os.path.join(here, t["cover"]) if t.get("cover") else ""
                                 self.tasks.append(task)
+                                details[task["id"]] = {k: t[k] for k in ("settings", "bed", "objects") if k in t}
                         continue
                     message = entry.get("msg", entry) if isinstance(entry, dict) else None
                     if isinstance(message, dict):
@@ -656,7 +658,7 @@ class Printer:
         with self.lock:
             self.tasks = tasks
         everything = dict(saved.get("tasks") or {})
-        everything[self.serial] = [{k: v for k, v in t.items() if k != "cover"} for t in tasks[:5]]
+        everything[self.serial] = [{k: v for k, v in t.items() if k not in SIGNED} for t in tasks[:5]]
         saved.put(tasks=everything)
         changed.set()
 
@@ -683,8 +685,17 @@ def task_of(t):
             return calendar.timegm(time.strptime(text[:19], "%Y-%m-%dT%H:%M:%S")) if text else None
         except ValueError:
             return None
+    configs = {c.get("name"): c.get("url") or "" for c in ((t.get("extention") or {}).get("modelInfo") or {}).get("configs") or []
+               if isinstance(c, dict)}
+    plate = "plate_%d.json" % int(number(t.get("plateIndex"), 1) or 1)
     return {"id": str(t.get("id") or ""), "title": t.get("title") or "", "design": t.get("designTitle") or "",
-            "status": t.get("status"), "end": when(t.get("endTime")), "cover": t.get("cover") or ""}
+            "status": t.get("status"), "end": when(t.get("endTime")), "cover": t.get("cover") or "",
+            "profile": t.get("instanceTitle") or "", "plate": configs.get(plate) or "",
+            "settings": configs.get("project_settings.config") or ""}
+
+
+# The task's links to its files: signed for half an hour, so kept in memory only.
+SIGNED = ("cover", "plate", "settings")
 
 
 def simple_name(text):
@@ -784,29 +795,32 @@ session = Session()
 
 
 class Hms:
-    """Bambu's own wording for HMS and print error codes, fetched once a week."""
+    """Bambu's own wording for HMS and print error codes, one table per printer type (a serial's first
+    three characters: newer printers' codes are only in their own), each fetched once a week."""
 
     def __init__(self):
-        self.table = {}
-        self.fetching = False
+        self.tables = {}  # type: {"at": epoch, "table": {ecode: text}}
+        self.tried = {}   # type: when its last fetch started
         try:
             with open(HMS_FILE) as f:
-                kept = json.load(f)
-            self.table = kept.get("table") or {}
-            if time.time() - (kept.get("at") or 0) > 7 * 86400:
-                self.refresh()
-        except (OSError, ValueError):
-            self.refresh()
+                self.tables = json.load(f).get("tables") or {}
+        except (OSError, ValueError, AttributeError):
+            pass
 
-    def refresh(self):
-        if self.fetching or FIXTURE:
-            return
-        self.fetching = True
-        background(self.fetch)
+    def table(self, kind):
+        kept = self.tables.get(kind)
+        if FIXTURE:
+            return ((kept or next(iter(self.tables.values()), None)) or {}).get("table") or {}
+        stale = not kept or time.time() - (kept.get("at") or 0) > 7 * 86400
+        if stale and time.time() - self.tried.get(kind, 0) > 600:
+            self.tried[kind] = time.time()
+            background(self.fetch, kind)
+        return (kept or {}).get("table") or {}
 
-    def fetch(self):
+    def fetch(self, kind):
         try:
-            request = urllib.request.Request(HMS_URL, headers={"User-Agent": HEADERS["User-Agent"]})
+            url = HMS_URL + "&" + urllib.parse.urlencode({"d": kind})
+            request = urllib.request.Request(url, headers={"User-Agent": HEADERS["User-Agent"]})
             with urllib.request.urlopen(request, timeout=30) as response:
                 data = json.loads(response.read())
             table = {}
@@ -815,35 +829,34 @@ class Hms:
                     if isinstance(entry, dict) and entry.get("ecode") and entry.get("intro"):
                         table[str(entry["ecode"]).upper()] = re.sub(r"\s+", " ", entry["intro"]).strip()
             if table:
-                self.table = table
+                self.tables[kind] = {"at": time.time(), "table": table}
                 with open(HMS_FILE, "w") as f:
-                    json.dump({"at": time.time(), "table": table}, f)
+                    json.dump({"tables": self.tables}, f)
             changed.set()
         except (OSError, ValueError, AttributeError) as e:
             log("hms:", e)
-        finally:
-            self.fetching = False
 
-    def errors(self, r):
-        """Texts for the report's fatal and serious HMS entries and its print error, worst first."""
+    def entries(self, r, kind):
+        """Texts for the report's HMS entries and print error: (fatal and serious ones, worst first;
+        the common and info notices Bambu's app shows in a banner, those with wording only)."""
+        table = self.table(kind)
         found = []
         for entry in r.get("hms") or []:
             try:
                 attr, code = int(entry.get("attr") or 0), int(entry.get("code") or 0)
             except (AttributeError, TypeError, ValueError):
                 continue
-            severity = code >> 16
-            if severity in (1, 2):  # fatal, serious; common and info notices aren't about the print
-                ecode = "%08X%08X" % (attr, code)
-                found.append((severity, self.table.get(ecode) or "HMS " + "_".join(ecode[i:i + 4] for i in range(0, 16, 4))))
+            ecode = "%08X%08X" % (attr, code)
+            found.append((code >> 16, table.get(ecode) or "HMS " + "_".join(ecode[i:i + 4] for i in range(0, 16, 4)), ecode in table))
         try:
             error = int(r.get("print_error") or 0)
         except (TypeError, ValueError):
             error = 0
         if error:
             ecode = "%08X" % error
-            found.append((2, self.table.get(ecode) or "Print error %s_%s" % (ecode[:4], ecode[4:])))
-        return [text for _, text in sorted(found, key=lambda f: f[0])]
+            found.append((2, table.get(ecode) or "Print error %s_%s" % (ecode[:4], ecode[4:]), True))
+        found.sort(key=lambda f: f[0])
+        return [text for severity, text, _ in found if severity in (1, 2)], [text for severity, text, known in found if severity not in (1, 2) and known]
 
 
 hms = None  # Hms, made in main()
@@ -971,6 +984,85 @@ def prune_covers(keep=40):
         os.remove(old)
 
 
+# ---------------------------------------------------------------- what the slicer wrote
+
+
+details = {}           # task id: {"settings": "0.2mm layer, 2 walls, 15% infill", "bed": [x0, y0, x1, y1], "objects": [...]}
+fetching_details = {}  # task id: when its fetch started
+BED = [0, 0, 256, 256]
+
+
+def details_for(task):
+    """The task's print settings and plate objects once fetched; else starts fetching them and answers {}."""
+    if not task or not task.get("id"):
+        return {}
+    if task["id"] in details or FIXTURE:
+        return details.get(task["id"]) or {}
+    # A failed fetch waits for the next task list, whose links are fresh.
+    if (task.get("plate") or task.get("settings")) and time.time() - fetching_details.get(task["id"], 0) > TASKS_EVERY:
+        fetching_details[task["id"]] = time.time()
+        background(fetch_details, task)
+    return {}
+
+
+def fetch_json(url):
+    if not url.startswith("https://"):
+        raise OSError("not an https URL")
+    with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "claude-bambu"}), timeout=20) as r:
+        answer = json.loads(r.read(4 * 1024 * 1024))
+    if not isinstance(answer, dict):
+        raise ValueError("not a JSON object")
+    return answer
+
+
+def fetch_details(task):
+    found = {}
+    try:
+        if task.get("settings"):
+            found.update(slicer_settings(fetch_json(task["settings"])))
+        if task.get("plate"):
+            found["objects"] = plate_objects(fetch_json(task["plate"]))
+    except (OSError, ValueError) as e:
+        log("details:", e)
+        return
+    details[task["id"]] = found
+    changed.set()
+
+
+def first(value):
+    return value[0] if isinstance(value, list) and value else value
+
+
+def slicer_settings(settings):
+    """The line Bambu's app shows under a print's name, and the bed's corners, from project_settings.config."""
+    found, parts = {}, []
+    layer, walls, infill = number(first(settings.get("layer_height"))), number(first(settings.get("wall_loops"))), first(settings.get("sparse_infill_density"))
+    if layer:
+        parts.append("%gmm layer" % layer)
+    if walls is not None:
+        parts.append("%d wall%s" % (walls, "" if walls == 1 else "s"))
+    if isinstance(infill, str) and infill.strip():
+        parts.append(infill.strip() + " infill")
+    if parts:
+        found["settings"] = ", ".join(parts)
+    corners = [[number(v) for v in str(point).split("x")] for point in settings.get("printable_area") or []]
+    if len(corners) >= 3 and all(len(c) == 2 and None not in c for c in corners):
+        xs, ys = [c[0] for c in corners], [c[1] for c in corners]
+        found["bed"] = [min(xs), min(ys), max(xs), max(ys)]
+    return found
+
+
+def plate_objects(plate):
+    """The objects plate_N.json lists: the ids skip_objects takes, names without the file type, and bed boxes."""
+    objects = []
+    for o in plate.get("bbox_objects") or []:
+        if not isinstance(o, dict) or not isinstance(o.get("id"), int) or not isinstance(o.get("bbox"), list) or len(o["bbox"]) < 4:
+            continue
+        name = re.sub(r"\.(stl|step|stp|obj|3mf)$", "", str(o.get("name") or ""), flags=re.I)
+        objects.append({"id": o["id"], "name": name or "Object", "box": [round(number(v, 0), 1) for v in o["bbox"][:4]]})
+    return objects
+
+
 # ---------------------------------------------------------------- the view
 
 
@@ -1024,19 +1116,22 @@ def ams_units(r):
         uid = int(number(unit.get("id"), -1))
         if uid < 0:
             continue
+        letter = "ABCDEFGH"[uid % 8]
         slots = []
         for tray in sorted((t for t in unit.get("tray") or [] if isinstance(t, dict)), key=lambda t: int(number(t.get("id"), 0))):
             index = uid * 4 + int(number(tray.get("id"), 0)) if uid < 128 else uid
             kind = tray.get("tray_type") or ""
             remain = tray.get("remain")
             slots.append({"type": kind, "color": hex_color(tray) if kind else "", "empty": not kind,
-                          "remain": remain if isinstance(remain, int) and kind else -1, "active": index == current})
-        label = "HT" if uid >= 128 else "AMS" + (" " + "ABCDEFGH"[uid % 8] if len(units) > 1 else "")
-        out.append({"label": label, "slots": slots})
+                          "remain": remain if isinstance(remain, int) and kind else -1, "active": index == current,
+                          "name": "HT" if uid >= 128 else letter + str(int(number(tray.get("id"), 0)) + 1)})
+        label = "HT" if uid >= 128 else "AMS" + (" " + letter if len(units) > 1 else "")
+        humidity = number(unit.get("humidity_raw"))
+        out.append({"label": label, "slots": slots, **({"humidity": round(humidity)} if humidity is not None and 0 < humidity <= 100 else {})})
     spools = r.get("vir_slot") or ([r["vt_tray"]] if isinstance(r.get("vt_tray"), dict) else [])
     for tray in spools:
         if isinstance(tray, dict) and tray.get("tray_type"):
-            out.append({"label": "Ext", "slots": [{"type": tray["tray_type"], "color": hex_color(tray), "empty": False,
+            out.append({"label": "Ext", "slots": [{"type": tray["tray_type"], "color": hex_color(tray), "empty": False, "name": "Ext",
                                                    "remain": -1, "active": current in (254, int(number(tray.get("id"), -1)))}]})
     return out
 
@@ -1116,10 +1211,16 @@ def build_view():
     label, tone = stage_of(r)
     task = printer.task()
     view = {"kind": kind, "device": printer.name, "connected": connected, "error": error, "light": light_on(r),
-            "thumb": cover_for(task), "stage": {"label": label, "tone": tone}, "hms": hms.errors(r)[:2]}
+            "thumb": cover_for(task), "stage": {"label": label, "tone": tone}}
+    view["hms"], view["notices"] = (texts[:2] for texts in hms.entries(r, printer.serial[:3]))
     if kind == "waiting":
         view["message"] = "Waiting for the printer…" if connected else "Reconnecting…" if error else "Connecting…"
     if kind == "active":
+        found = details_for(task)
+        skipped = {int(number(i, -1)) for i in r.get("s_obj") or []}
+        objects = [dict(o, skipped=o["id"] in skipped) for o in found.get("objects") or []]
+        view.update(settings=found.get("settings") or (task or {}).get("profile") or "", objects=objects,
+                    bed=found.get("bed") or BED)
         view.update(name=(task or {}).get("design") or r.get("subtask_name") or os.path.basename(r.get("gcode_file") or "") or "Print",
                     percent=int(number(r.get("mc_percent"), 0)), layer=int(number(r.get("layer_num"), 0)),
                     layers=int(number(r.get("total_layer_num"), 0)), speed=SPEEDS.get(int(number(r.get("spd_lvl"), 2)), ""),
@@ -1151,7 +1252,7 @@ def build_view():
 # ---------------------------------------------------------------- commands and output
 
 
-def run_command(cmd):
+def run_command(cmd, entry=None):
     try:
         if cmd == "sign-in":
             emit({"toast": sign_in()})
@@ -1177,6 +1278,8 @@ def run_command(cmd):
                                          "led_mode": mode, "led_on_time": 500, "led_off_time": 500,
                                          "loop_times": 0, "interval_time": 0}})
                 emit({"toast": "Light " + mode})
+            elif cmd == "skip":
+                emit({"toast": skip_objects(printer, (entry or {}).get("objects"))})
             elif cmd in ("pause", "resume", "stop"):
                 printer.send({"print": {"sequence_id": "0", "command": cmd, "param": ""}})
                 emit({"toast": {"pause": "Pausing the print", "resume": "Resuming the print", "stop": "Stopping the print"}[cmd]})
@@ -1188,12 +1291,31 @@ def run_command(cmd):
     changed.set()
 
 
+def skip_objects(printer, wanted):
+    with printer.lock:
+        r = dict(printer.report)
+    if (r.get("gcode_state") or "").upper() not in ACTIVE_STATES:
+        raise Problem("No print to skip objects in")
+    skipped = {int(number(i, -1)) for i in r.get("s_obj") or []}
+    left = [o["id"] for o in details_for(printer.task()).get("objects") or [] if o["id"] not in skipped]
+    ids = sorted({i for i in wanted or [] if isinstance(i, int) and i in left})
+    if not ids:
+        raise Problem("Nothing to skip")
+    if len(ids) >= len(left):
+        raise Problem("That's every object left; stop the print instead")
+    printer.send({"print": {"sequence_id": "0", "command": "skip_objects", "obj_list": ids}})
+    if FIXTURE:  # no printer to answer with s_obj
+        with printer.lock:
+            printer.report["s_obj"] = sorted(skipped | set(ids))
+    return "Skipping %d object%s" % (len(ids), "" if len(ids) == 1 else "s")
+
+
 def watch_commands():
     busy = set()
 
-    def run(cmd):
+    def run(cmd, entry):
         try:
-            run_command(cmd)
+            run_command(cmd, entry)
         finally:
             busy.discard(cmd)
 
@@ -1206,16 +1328,17 @@ def watch_commands():
             path = os.path.join(COMMANDS, name)
             try:
                 with open(path) as f:
-                    cmd = (json.load(f) or {}).get("cmd")
+                    entry = json.load(f) or {}
+                cmd = entry.get("cmd")
             except (OSError, ValueError, AttributeError):
-                cmd = None
+                entry, cmd = None, None
             try:
                 os.remove(path)
             except OSError:
                 pass
-            if cmd in ("sign-in", "sign-out", "refresh", "light", "pause", "resume", "stop") and cmd not in busy:
+            if cmd in ("sign-in", "sign-out", "refresh", "light", "pause", "resume", "stop", "skip") and cmd not in busy:
                 busy.add(cmd)
-                background(run, cmd)
+                background(run, cmd, entry)
 
 
 def push_views():

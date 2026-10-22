@@ -12,19 +12,19 @@
 
 </div>
 
-A [Claude Code](https://claude.com/claude-code) plugin that keeps your Bambu Lab printer in a pane beside the chat, in the desktop app and in the terminal: what it's printing, the stage, progress and layer, time left and when it'll be done, nozzle, bed and chamber temperatures, the AMS filaments with their colours, HMS errors, and the plate thumbnail. When the printer is idle, it shows the last print and how it ended.
+A [Claude Code](https://claude.com/claude-code) plugin that keeps your Bambu Lab printer in a pane beside the chat, in the desktop app and in the terminal, laid out like Bambu Handy: what it's printing and with which settings (layer height, walls, infill), the stage, progress and layer, time left and when it'll be done, nozzle, bed and chamber temperatures, the AMS spools with their colours, what's left on them and the AMS humidity, HMS errors and the printer's notices, and the plate thumbnail. When the printer is idle, it shows the last print and how it ended.
 
-Buttons in the pane turn the chamber light on and off, pause, resume or stop a print (each asks to confirm), and open Bambu Studio.
+Buttons in the pane turn the chamber light on and off, pause, resume or stop a print, skip objects on the plate (picked on a drawing of the bed), and open Bambu Studio. Pausing, stopping and skipping each ask to confirm.
 
 Status comes live from Bambu Lab's cloud, the same way Bambu Studio and Bambu Handy get it, so the printer can be anywhere with a connection.
 
 <p align="center">
-  <img src="assets/demo.gif" width="595" alt="Time-lapse of the Bambu pane through a print of a spoon rest: homing, changing filament, calibrating, cleaning the nozzle, leveling the bed, then printing up to 50%">
+  <img src="assets/screenshots/printing-dark.png" width="476" alt="The pane during a print of a spoon rest: temperature chips, a printer notice, the print card with its settings, progress, time left and layer, Skip, Pause and Stop, and the AMS with four spools, the one in use feeding below it">
 </p>
 
 | Finished | Out of filament |
 | --- | --- |
-| <img src="assets/screenshots/idle-dark.png" alt="The idle pane showing the last print and how it ended"> | <img src="assets/screenshots/paused-dark.png" alt="A print paused because the filament ran out, with the HMS error"> |
+| <img src="assets/screenshots/idle-dark.png" alt="The idle pane showing the last print and how it ended, and the AMS spools"> | <img src="assets/screenshots/paused-dark.png" alt="A print paused because the filament ran out: the HMS error in red, a yellow progress bar, Resume, and the empty spool's bar at zero"> |
 
 ## Install
 
@@ -73,7 +73,8 @@ Each Claude Code session runs its own bridge, so several open sessions mean seve
 ## Known limits
 
 - Bambu Lab's cloud API isn't public. The bridge introduces itself the way a slicer's network agent does, as other third-party Bambu tools do, and Bambu may change or close that access at any time.
-- Pause, resume, stop and the light go through the cloud; how quickly the printer acts on them depends on Bambu's service.
+- Pause, resume, stop, skip and the light go through the cloud; how quickly the printer acts on them depends on Bambu's service.
+- The print settings and the objects to skip come from the slicer's files Bambu keeps with the cloud task, so a print the cloud has no task for shows neither.
 
 ## Development
 
@@ -84,7 +85,7 @@ claude plugin test .
 claude plugin validate .
 ```
 
-`BAMBU_FIXTURE=<file.jsonl> python3 bridge/bridge.py` plays recorded MQTT messages, one JSON object per line, instead of signing in. A line `{"device": name}` names the printer; `{"tasks": [...]}` stands in for its cloud tasks, with `ago` (seconds since the task ended) and `cover` (a PNG beside the fixture).
+`BAMBU_FIXTURE=<file.jsonl> python3 bridge/bridge.py` plays recorded MQTT messages, one JSON object per line, instead of signing in. A line `{"device": name}` names the printer; `{"tasks": [...]}` stands in for its cloud tasks, with `ago` (seconds since the task ended), `cover` (a PNG beside the fixture), and what the slicer's files would give: `settings`, `bed` and `objects`.
 
 `fixtures/` holds made-up prints for the screenshots: `printing.jsonl`, `paused.jsonl` and `idle.jsonl`. The bridge inherits the session's environment, so this shows one in the pane:
 

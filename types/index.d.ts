@@ -2,9 +2,14 @@ export type Tone = 'ok' | 'info' | 'warn' | 'bad' | 'dim'
 
 export type Temperature = { label: string; current: number; target: number; heating: boolean }
 
-export type Slot = { type: string; color: string; remain: number; active: boolean; empty: boolean }
+/** `name` is the slot's as the printer labels it: A1…A4, HT, Ext. */
+export type Slot = { type: string; color: string; remain: number; active: boolean; empty: boolean; name: string }
 
-export type AmsUnit = { label: string; slots: Slot[] }
+/** `humidity` in percent, where the AMS reports it. */
+export type AmsUnit = { label: string; slots: Slot[]; humidity?: number }
+
+/** An object on the plate: `id` is what `skip_objects` takes, `box` its corners on the bed in mm. */
+export type PlateObject = { id: number; name: string; box: number[]; skipped: boolean }
 
 /** What bridge/bridge.py prints as `{"view": ...}`. */
 export type PrinterView = {
@@ -17,7 +22,11 @@ export type PrinterView = {
   thumb?: string
   stage?: { label: string; tone: Tone }
   hms?: string[]
+  notices?: string[]
   name?: string
+  settings?: string
+  objects?: PlateObject[]
+  bed?: number[]
   percent?: number
   layer?: number
   layers?: number
@@ -36,6 +45,8 @@ declare module 'claude-code' {
       view: PrinterView | null
       commands: string
       confirm: string
+      /** The object ids picked to skip while the picker is open; null when it's closed. */
+      skip: number[] | null
     }
   }
 }

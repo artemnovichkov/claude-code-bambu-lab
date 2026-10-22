@@ -24,7 +24,7 @@ A Claude Code plugin ("mod") named `bambu`: a pane beside the chat showing a Bam
 - MQTT 3.1.1, QoS 0, own client over TLS to `us.mqtt.bambulab.com:8883` (`cn.` for china), user `u_<uid>`, password the access token. Subscribes `device/<serial>/report`, publishes to `device/<serial>/request`, sends `pushall` on connect and after 5 quiet minutes. Partial reports merge into the full one (`merge()`: lists of `{"id"}` entries merge by id).
 - Newer firmware (P2S) packs temperatures as `target << 16 | current` under `device.extruder/bed/ctc.info.temp`; older fields are the fallback.
 - Requests carry slicer-style headers (`X-BBL-Client-*`); Bambu's API answers slicers. Documented as a known limit in the README.
-- Data lives in `~/Library/Application Support/claude-bambu/` (`state.json`, `covers/`, `hms.json`, `bridge.log`). The log never holds tokens, passwords or serials: keep it that way.
+- Data lives in `~/Library/Application Support/claude-bambu/` (`state.json`, `covers/`, `hms-tables.json` (HMS wording per printer type: the serial's first three characters as `d=`), `bridge.log`). The log never holds tokens, passwords or serials: keep it that way.
 - Plate covers: downloaded, `sips -Z 320`, cropped to the opaque area by the bridge's own PNG decoder (`png_pixels`).
 
 ## Rules
