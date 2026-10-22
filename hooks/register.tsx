@@ -95,6 +95,12 @@ function spoolSvg(slot: Slot): string {
       `<stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>` +
       `<rect x="${front - 17}" y="${cy}" width="4" height="${height - cy}" fill="url(#feed)" stroke="#00000033" stroke-width="0.5"/>`
   }
+  // An empty slot is just its name where the spool would be.
+  if (slot.empty) {
+    out += `<text x="${cx}" y="${cy + 5}" ${FONT} font-size="14" font-weight="600" fill="#9A9A9A" text-anchor="middle">${slot.name}</text>`
+
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${out}</svg>`
+  }
   // The back flange, the winding (a cylinder, shaded round), the front flange and its hub.
   out += `<ellipse cx="${front - 30}" cy="${cy}" rx="14" ry="38" fill="#353535"/>`
   if (!slot.empty) {
@@ -510,7 +516,8 @@ export const register: Register = (on, options) => {
         <Box flexDirection="column" gap={1} borderStyle="round" borderDimColor paddingX={1}>
           <Box flexDirection="row" gap={2} alignItems="center">
             {picture}
-            <Box flexDirection="column" flexGrow={1} flexShrink={1}>
+            {/* minWidth 0: the bar's own width must not hold the column wider than a narrow pane. */}
+            <Box flexDirection="column" flexGrow={1} flexShrink={1} minWidth={0}>
               <Text bold wrap="truncate-end">
                 {v.name}
               </Text>

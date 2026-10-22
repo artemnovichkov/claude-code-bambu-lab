@@ -2,6 +2,13 @@
 
 Each version's section becomes its GitHub release's notes when its `v<version>` tag is pushed.
 
+## 0.4.1 - 2026-10-22
+
+### Fixed
+
+- An empty AMS slot shows only its name instead of a spool with no filament on it.
+- In a narrow pane, the print's settings and progress bar stay inside the print card.
+
 ## 0.4.0 - 2026-10-22
 
 The pane is laid out like Bambu Handy.
