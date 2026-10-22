@@ -1,6 +1,6 @@
 {
   "name": "bambu",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "A Bambu Lab printer in a pane beside the chat: stage, progress, time left, temperatures, AMS filaments and the plate thumbnail, live from Bambu Lab's cloud.",
   "author": {
     "name": "Artem Novichkov"

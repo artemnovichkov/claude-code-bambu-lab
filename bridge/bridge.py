@@ -1120,7 +1120,7 @@ def build_view():
     if kind == "waiting":
         view["message"] = "Waiting for the printer…" if connected else "Reconnecting…" if error else "Connecting…"
     if kind == "active":
-        view.update(name=r.get("subtask_name") or os.path.basename(r.get("gcode_file") or "") or "Print",
+        view.update(name=(task or {}).get("design") or r.get("subtask_name") or os.path.basename(r.get("gcode_file") or "") or "Print",
                     percent=int(number(r.get("mc_percent"), 0)), layer=int(number(r.get("layer_num"), 0)),
                     layers=int(number(r.get("total_layer_num"), 0)), speed=SPEEDS.get(int(number(r.get("spd_lvl"), 2)), ""),
                     paused=state == "PAUSE", temps=temperatures(r), ams=ams_units(r))
@@ -1135,12 +1135,12 @@ def build_view():
     if state in ("FINISH", "FAILED") and r.get("subtask_name"):
         end = (task or {}).get("end") or finished_at or None
         failed = state == "FAILED"
-        view["last"] = {"name": r["subtask_name"], "verb": "Failed" if failed else "Finished", "tone": "bad" if failed else "ok",
+        view["last"] = {"name": (task or {}).get("design") or r["subtask_name"], "verb": "Failed" if failed else "Finished", "tone": "bad" if failed else "ok",
                         "when": ago(time.time() - end) if end else ""}
     elif task:
         status = task.get("status")
         verb, last_tone = ("Finished", "ok") if status == 2 else ("Stopped", "bad") if status == 3 else ("Printed", "dim")
-        view["last"] = {"name": task["title"] or task["design"] or "Untitled", "verb": verb, "tone": last_tone,
+        view["last"] = {"name": task["design"] or task["title"] or "Untitled", "verb": verb, "tone": last_tone,
                         "when": ago(time.time() - task["end"]) if task.get("end") else ""}
     if kind == "idle":
         view["temps"] = [t for t in temperatures(r) if t["label"] != "Chamber" and (t["target"] or t["current"] >= 40)]

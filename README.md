@@ -18,13 +18,13 @@ Buttons in the pane turn the chamber light on and off, pause, resume or stop a p
 
 Status comes live from Bambu Lab's cloud, the same way Bambu Studio and Bambu Handy get it, so the printer can be anywhere with a connection.
 
-<img src="assets/demo.gif" width="505" alt="Time-lapse of the Bambu pane as a print starts: idle with the last print, then homing, calibrating, cleaning the nozzle, leveling the bed and printing">
+<p align="center">
+  <img src="assets/demo.gif" width="595" alt="Time-lapse of the Bambu pane through a print of a spoon rest: homing, changing filament, calibrating, cleaning the nozzle, leveling the bed, then printing up to 50%">
+</p>
 
-<img src="assets/screenshots/printing-dark.png" width="505" alt="The Bambu pane in the Claude desktop app, mid-print: stage, layer, progress, time left, temperatures, AMS filaments and the plate thumbnail">
-
-| Paused, with an HMS error | Idle, with the last print |
+| Finished | Out of filament |
 | --- | --- |
-| <img src="assets/screenshots/paused-dark.png" alt="A print paused because the filament ran out"> | <img src="assets/screenshots/idle-dark.png" alt="The idle pane showing the last print and how it ended"> |
+| <img src="assets/screenshots/idle-dark.png" alt="The idle pane showing the last print and how it ended"> | <img src="assets/screenshots/paused-dark.png" alt="A print paused because the filament ran out, with the HMS error"> |
 
 ## Install
 

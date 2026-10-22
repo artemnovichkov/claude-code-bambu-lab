@@ -246,8 +246,11 @@ export const register: Register = (on, options) => {
         <Text bold>{v.name}</Text>
         {head}
         <Text>
-          <Text bold>{v.percent ?? 0}% </Text>
-          <Text color={TONES[stage.tone === 'info' ? 'ok' : stage.tone]}>{bar(v.percent ?? 0)}</Text>
+          <Text bold tabular>{v.percent ?? 0}% </Text>
+          {/* Monospaced: █ and ░ differ in width in a proportional face, and the bar grew as it filled. */}
+          <Text color={TONES[stage.tone === 'info' ? 'ok' : stage.tone]} mono>
+            {bar(v.percent ?? 0)}
+          </Text>
         </Text>
         {v.left ? (
           <Text>
