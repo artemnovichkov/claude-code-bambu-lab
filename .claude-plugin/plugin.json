@@ -8,6 +8,7 @@
   "homepage": "https://github.com/artemnovichkov/claude-code-bambu-lab",
   "repository": "https://github.com/artemnovichkov/claude-code-bambu-lab",
   "license": "MIT",
+  "icon": "./assets/icon.svg",
   "keywords": [
     "bambu-lab",
     "3d-printing",

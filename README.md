@@ -1,3 +1,5 @@
+<img src="assets/icon.svg" width="96" alt="">
+
 # Bambu Lab printer pane for Claude Code
 
 A [Claude Code](https://claude.com/claude-code) plugin that keeps your Bambu Lab printer in a pane beside the chat, in the desktop app and in the terminal: what it's printing, the stage, progress and layer, time left and when it'll be done, nozzle, bed and chamber temperatures, the AMS filaments with their colours, HMS errors, and the plate thumbnail. When the printer is idle, it shows the last print and how it ended.
@@ -5,6 +7,12 @@ A [Claude Code](https://claude.com/claude-code) plugin that keeps your Bambu Lab
 Buttons in the pane turn the chamber light on and off, pause, resume or stop a print (each asks to confirm), and open Bambu Studio.
 
 Status comes live from Bambu Lab's cloud, the same way Bambu Studio and Bambu Handy get it, so the printer can be anywhere with a connection.
+
+<img src="assets/screenshots/printing-dark.png" width="505" alt="The Bambu pane in the Claude desktop app, mid-print: stage, layer, progress, time left, temperatures, AMS filaments and the plate thumbnail">
+
+| Paused, with an HMS error | Idle, with the last print |
+| --- | --- |
+| <img src="assets/screenshots/paused-dark.png" alt="A print paused because the filament ran out"> | <img src="assets/screenshots/idle-dark.png" alt="The idle pane showing the last print and how it ended"> |
 
 ## Install
 
@@ -64,7 +72,13 @@ claude plugin test .
 claude plugin validate .
 ```
 
-`BAMBU_FIXTURE=<file.jsonl> python3 bridge/bridge.py` plays recorded MQTT messages, one JSON object per line, instead of signing in.
+`BAMBU_FIXTURE=<file.jsonl> python3 bridge/bridge.py` plays recorded MQTT messages, one JSON object per line, instead of signing in. A line `{"device": name}` names the printer; `{"tasks": [...]}` stands in for its cloud tasks, with `ago` (seconds since the task ended) and `cover` (a PNG beside the fixture).
+
+`fixtures/` holds made-up prints for the screenshots: `printing.jsonl`, `paused.jsonl` and `idle.jsonl`. The bridge inherits the session's environment, so this shows one in the pane:
+
+```
+BAMBU_FIXTURE=$PWD/fixtures/printing.jsonl claude --plugin-dir .
+```
 
 ## Disclaimer
 

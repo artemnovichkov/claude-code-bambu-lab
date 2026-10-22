@@ -565,15 +565,30 @@ class Printer:
                 self.ask_everything()
 
     def follow_fixture(self):
-        """Plays BAMBU_FIXTURE: each line a message, or {"msg": message}; ends connected."""
+        """Plays BAMBU_FIXTURE: each line a message, or {"msg": message}; ends connected.
+
+        {"device": name} names the printer; {"tasks": [...]} stands in for its cloud tasks, each
+        {"id", "title", "status", "ago": seconds since it ended, "cover": a PNG beside the fixture}."""
         with self.lock:
             self.connected = True
+        here = os.path.dirname(os.path.abspath(FIXTURE))
         try:
             with open(FIXTURE) as f:
                 for line in f:
                     try:
                         entry = json.loads(line)
                     except ValueError:
+                        continue
+                    if isinstance(entry, dict) and ("device" in entry or "tasks" in entry):
+                        with self.lock:
+                            self.name = str(entry.get("device") or self.name)
+                            for t in entry.get("tasks") or []:
+                                if not isinstance(t, dict):
+                                    continue
+                                task = task_of(t)
+                                task["end"] = time.time() - t["ago"] if isinstance(t.get("ago"), (int, float)) else None
+                                task["cover"] = os.path.join(here, t["cover"]) if t.get("cover") else ""
+                                self.tasks.append(task)
                         continue
                     message = entry.get("msg", entry) if isinstance(entry, dict) else None
                     if isinstance(message, dict):
@@ -911,7 +926,9 @@ def cover_for(task):
     """The path of the task's thumbnail when it's on disk; else starts fetching it and answers ""."""
     if not task or not task.get("id"):
         return ""
-    path = os.path.join(COVERS, hashlib.sha1(task["id"].encode()).hexdigest()[:16] + ".png")
+    if FIXTURE:
+        return task["cover"] if os.path.isfile(task.get("cover") or "") else ""
+    path =os.path.join(COVERS, hashlib.sha1(task["id"].encode()).hexdigest()[:16] + ".png")
     if os.path.exists(path):
         return path
     if task.get("cover") and task["id"] not in fetching_covers:

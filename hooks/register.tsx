@@ -242,7 +242,7 @@ export const register: Register = (on, options) => {
     const hms = (v.hms ?? []).map(text => <Text color="error">⚠ {text}</Text>)
 
     const body = active ? (
-      <Box flexDirection="column">
+      <Box flexDirection="column" flexShrink={1}>
         <Text bold>{v.name}</Text>
         {head}
         <Text>
@@ -258,7 +258,7 @@ export const register: Register = (on, options) => {
         {hms}
       </Box>
     ) : (
-      <Box flexDirection="column">
+      <Box flexDirection="column" flexShrink={1}>
         {head}
         {v.error && v.kind === 'waiting' ? <Text color="warning">{v.error}</Text> : null}
         {v.last ? (
