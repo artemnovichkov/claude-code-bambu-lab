@@ -18,6 +18,8 @@ Buttons in the pane turn the chamber light on and off, pause, resume or stop a p
 
 Status comes live from Bambu Lab's cloud, the same way Bambu Studio and Bambu Handy get it, so the printer can be anywhere with a connection.
 
+<img src="assets/demo.gif" width="560" alt="A laptop beside a printing Bambu Lab P2S: a question in the Claude chat gets its answer while the Bambu pane shows the print's progress">
+
 <img src="assets/screenshots/printing-dark.png" width="505" alt="The Bambu pane in the Claude desktop app, mid-print: stage, layer, progress, time left, temperatures, AMS filaments and the plate thumbnail">
 
 | Paused, with an HMS error | Idle, with the last print |
