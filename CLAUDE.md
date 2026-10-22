@@ -43,4 +43,6 @@ claude plugin test .
 BAMBU_FIXTURE=<file.jsonl> python3 -I bridge/bridge.py </dev/null   # recorded MQTT messages, one per line
 ```
 
+Release: bump `version` in `plugin.json`, add a `## <version> - <date>` section on top of `CHANGELOG.md`, commit, push tag `v<version>`. `.github/workflows/release.yml` fails if the tag and `plugin.json` disagree or the section is missing, else publishes the release with that section as notes.
+
 Run the mod from this folder with `claude --plugin-dir ~/Developer/claude-code-bambu-lab` (desktop: `CLAUDE_CODE_PLUGIN_DIRS`). Don't also have the installed copy enabled, or the session gets two panes and two bridges. Hooks-module rules that bite: a function that takes `$` must be declared at the top of the file; `$.process.spawn` gives no stdin, hence the command files. The engine writes the API types to `.claude-plugin/types/` (gitignored) on load; `tsconfig.json` extends them for `tsc -p .`.

@@ -4,7 +4,7 @@
 
 # Bambu Lab printer pane for Claude Code
 
-[![Version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fartemnovichkov%2Fclaude-code-bambu-lab%2Fmain%2F.claude-plugin%2Fplugin.json&query=%24.version&label=version)](.claude-plugin/plugin.json)
+[![Release](https://img.shields.io/github/v/release/artemnovichkov/claude-code-bambu-lab)](https://github.com/artemnovichkov/claude-code-bambu-lab/releases)
 [![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-orange)](#install)
 [![macOS](https://img.shields.io/badge/platform-macOS-lightgrey)](#requirements)
 [![Python 3, standard library only](https://img.shields.io/badge/python-3_%C2%B7_stdlib_only-blue)](bridge/bridge.py)
@@ -90,6 +90,14 @@ claude plugin validate .
 BAMBU_FIXTURE=$PWD/fixtures/printing.jsonl claude --plugin-dir .
 ```
 
+### Releasing
+
+1. Bump `version` in `.claude-plugin/plugin.json`: installed copies update only when it changes.
+2. Add a `## <version> - <date>` section on top of [CHANGELOG.md](CHANGELOG.md).
+3. Commit, then push the tag: `git tag v<version> && git push origin v<version>`.
+
+The [Release workflow](.github/workflows/release.yml) checks the tag against `plugin.json` and publishes a GitHub release with that version's changelog section as its notes.
+
 ## More from me
 
 - [3d-prints](https://github.com/artemnovichkov/3d-prints): models I design and print, with OpenSCAD and Fusion sources and ready-to-print 3MFs.
@@ -98,6 +106,10 @@ BAMBU_FIXTURE=$PWD/fixtures/printing.jsonl claude --plugin-dir .
 ## Disclaimer
 
 This is an independent project. It is not affiliated with, endorsed by or sponsored by Bambu Lab or Anthropic. Bambu Lab, Bambu Studio and Bambu Handy are trademarks of Bambu Lab; Claude and Claude Code are trademarks of Anthropic. They are named here only to say what the plugin works with.
+
+## Author
+
+Artem Novichkov, https://artemnovichkov.com/
 
 ## License
 
