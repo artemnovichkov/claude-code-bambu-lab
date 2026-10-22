@@ -1,0 +1,13 @@
+{
+  "name": "claude-code-bambu-lab",
+  "description": "A Bambu Lab printer pane for Claude Code: live print status, AMS and the plate thumbnail.",
+  "owner": {
+    "name": "Artem Novichkov"
+  },
+  "plugins": [
+    {
+      "name": "bambu",
+      "source": "./"
+    }
+  ]
+}

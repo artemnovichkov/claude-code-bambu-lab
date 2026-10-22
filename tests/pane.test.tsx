@@ -1,0 +1,143 @@
+import { expect, test } from 'claude-code/testing'
+
+const PANE = {
+  plugin: 'bambu',
+  component: 'Pane',
+  requestId: 'bambu',
+  props: {
+    title: 'Bambu',
+    isFocused: false,
+    bodyColumns: 80,
+    placement: 'dock',
+    scroll: { offset: 0, bodyRows: 20 },
+    view: {},
+  },
+} as const
+
+const PRINTING = {
+  kind: 'active',
+  device: 'Workshop P2S',
+  connected: true,
+  error: '',
+  light: true,
+  thumb: '/tmp/plate.png',
+  stage: { label: 'Printing', tone: 'ok' },
+  hms: [],
+  name: '3DBenchy',
+  percent: 19,
+  layer: 223,
+  layers: 386,
+  speed: '',
+  paused: false,
+  left: '2h 37m left',
+  done: 'done 17:23',
+  temps: [{ label: 'Nozzle', current: 216, target: 220, heating: false }],
+  ams: [{ label: 'AMS', slots: [{ type: 'PLA', color: '#FFFFFF', remain: 90, active: true, empty: false }] }],
+}
+
+const IDLE = {
+  kind: 'idle',
+  device: 'Workshop P2S',
+  connected: true,
+  light: true,
+  thumb: '',
+  stage: { label: 'Finished', tone: 'ok' },
+  hms: [],
+  last: { name: '0.2mm layer, 2 walls, 15% infill', verb: 'Finished', tone: 'ok', when: '3h ago' },
+  temps: [],
+  ams: [
+    {
+      label: 'AMS',
+      slots: [
+        { type: 'PLA', color: '#161616', remain: 90, active: false, empty: false },
+        { type: 'PETG', color: '#F5E6A8', remain: -1, active: false, empty: false },
+        { type: 'PLA', color: '#F95D73', remain: 100, active: true, empty: false },
+        { type: 'PLA', color: '#FFFFFF', remain: 52, active: false, empty: false },
+      ],
+    },
+  ],
+}
+
+for (const [name, view] of [['printing', PRINTING], ['idle', IDLE]] as const) {
+  test(`the pane draws a ${name} printer on every surface`, async ($, on) => {
+    on('command.register', () => ({ value: { command: 'bambu' } }))
+    on('ui.open', () => ({ value: { isPlaced: true } }))
+    on('session.start', (_, e) => ({ cwd: e.cwd }))
+    on('fs.read', () => ({ value: { base64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==' } }))
+    on('ui.log', () => ({ value: undefined }))
+    on('ui.toast', () => ({ value: undefined }))
+    on('process.spawn', async function* () {
+      yield { stream: 'stdout' as const, text: JSON.stringify({ commands: '/tmp/cmd' }) + '\n' }
+      yield { stream: 'stdout' as const, text: JSON.stringify({ view }) + '\n' }
+      return { value: { code: 0, signal: null } }
+    })
+
+    await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+
+    for (const surface of ['terminal', 'desktop'] as const) {
+      const ui = await $.ui.mount({ ...PANE, surface })
+      if (name === 'printing') {
+        expect(await ui.find({ type: 'Text', text: /3DBenchy/ })).toBeDefined()
+        expect(await ui.find({ type: 'Text', text: /19%/ })).toBeDefined()
+        expect(await ui.find({ type: 'Text', text: /2h 37m left/ })).toBeDefined()
+        expect(await ui.find({ key: 'stop' })).toBeDefined()
+        expect(await ui.find({ type: surface === 'terminal' ? 'Image' : 'Svg' })).toBeDefined()
+      } else {
+        expect(await ui.find({ type: 'Text', text: /Last print/ })).toBeDefined()
+        expect(await ui.find({ type: 'Text', text: /3h ago/ })).toBeDefined()
+        expect(await ui.find({ key: 'light' })).toBeDefined()
+        // Four slots fit 80 columns whole: one row, with percentages.
+        expect(await ui.find({ type: 'Text', text: /^AMS .*PLA 90%.*PLA 52%$/ })).toBeDefined()
+      }
+      await ui.unmount()
+    }
+  })
+}
+
+test('a narrow pane drops the AMS percentages, then the types', async ($, on) => {
+  on('command.register', () => ({ value: { command: 'bambu' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('ui.log', () => ({ value: undefined }))
+  on('process.spawn', async function* () {
+    yield { stream: 'stdout' as const, text: JSON.stringify({ commands: '/tmp/cmd' }) + '\n' }
+    yield { stream: 'stdout' as const, text: JSON.stringify({ view: IDLE }) + '\n' }
+    return { value: { code: 0, signal: null } }
+  })
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+
+  for (const [columns, text] of [[36, /^AMS ■ PLA  ■ PETG  ■ PLA  ■ PLA$/], [20, /^AMS ■ ■ ■◂ ■$/]] as const) {
+    const ui = await $.ui.mount({ ...PANE, surface: 'desktop', props: { ...PANE.props, bodyColumns: columns } })
+    expect(await ui.find({ type: 'Text', text })).toBeDefined()
+    await ui.unmount()
+  }
+})
+
+test('signed out, the pane offers sign-in and hands it to the bridge', { options: { region: 'china', printer: 'Workshop P2S' } }, async ($, on) => {
+  const written: string[] = []
+  let env: Record<string, string> | undefined
+  on('command.register', () => ({ value: { command: 'bambu' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('ui.log', () => ({ value: undefined }))
+  on('clock.now', () => ({ value: 1 }))
+  on('fs.write', (_, e) => {
+    written.push(`${e.path} ${e.text}`)
+    return { value: undefined }
+  })
+  on('process.spawn', async function* (_, e) {
+    env = e.env
+    yield { stream: 'stdout' as const, text: JSON.stringify({ commands: '/tmp/cmd' }) + '\n' }
+    yield { stream: 'stdout' as const, text: JSON.stringify({ view: { kind: 'signed-out', message: 'Sign in to Bambu Lab' } }) + '\n' }
+    return { value: { code: 0, signal: null } }
+  })
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  expect(env).toEqual({ BAMBU_REGION: 'china', BAMBU_PRINTER: 'Workshop P2S' })
+
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    await ui.press({ key: 'sign-in' })
+    await ui.unmount()
+  }
+  expect(written).toEqual(['/tmp/cmd/1-sign-in.json {"cmd":"sign-in"}', '/tmp/cmd/1-sign-in.json {"cmd":"sign-in"}'])
+})

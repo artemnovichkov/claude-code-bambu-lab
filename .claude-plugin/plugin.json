@@ -1,0 +1,47 @@
+{
+  "name": "bambu",
+  "version": "0.2.0",
+  "description": "A Bambu Lab printer in a pane beside the chat: stage, progress, time left, temperatures, AMS filaments and the plate thumbnail, live from Bambu Lab's cloud.",
+  "author": {
+    "name": "Artem Novichkov"
+  },
+  "homepage": "https://github.com/artemnovichkov/claude-code-bambu-lab",
+  "repository": "https://github.com/artemnovichkov/claude-code-bambu-lab",
+  "license": "MIT",
+  "keywords": [
+    "bambu-lab",
+    "3d-printing",
+    "printer",
+    "mqtt",
+    "pane"
+  ],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "region": {
+      "type": "string",
+      "title": "Region",
+      "description": "china for an account made on bambulab.cn; global for every other account. Sign in again after changing it.",
+      "default": "global",
+      "options": [
+        "global",
+        "china"
+      ]
+    },
+    "printer": {
+      "type": "string",
+      "title": "Printer",
+      "description": "Which printer to show, by its name in Bambu Studio or the end of its serial number. Empty shows the first one.",
+      "default": ""
+    },
+    "pane": {
+      "type": "string",
+      "title": "Pane",
+      "description": "auto opens the Bambu pane when a session starts; command opens it only with /bambu.",
+      "default": "auto",
+      "options": [
+        "auto",
+        "command"
+      ]
+    }
+  }
+}
